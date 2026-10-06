@@ -1,0 +1,33 @@
+services:
+  rgt_ws:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ros2_foxy_ws
+    network_mode: host
+    environment:
+      - XDG_RUNTIME_DIR=/tmp/runtime-rgt
+      - ROS_MASTER_URI=http://${ROBOT_IP}:11311
+      - ROS_IP=${YOUR_IP}
+      - CATKIN_WORKSPACE_DIR=/home/dogux/ros2_foxy_ws
+      - DISPLAY=${DISPLAY}
+      - LIBGL_ALWAYS_INDIRECT=0
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - ~/.ssh:/home/rgt/.ssh
+      - ~/.ros:/home/rgt/.ros
+      - ${PWD}/../src:/home/dogux/ros2_foxy_ws/src
+      # - ${PWD}/../build:/home/rgt/catkin_ws/build
+      # - ${PWD}/../devel:/home/rgt/catkin_ws/devel
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # - ~/.Xauthority:/home/rgt/.Xauthority:ro
+      # - /dev/dri:/dev/dri  # Mount GPU device for Intel graphics
+    devices:
+      - /dev/dri:/dev/dri  # Explicitly allow DRI device access
+    # ports:
+    #   - "8080:80"  # Map host port 8080 to container port 80
+    #command: nginx -g 'daemon off;'
+    stdin_open: true
+    tty: true

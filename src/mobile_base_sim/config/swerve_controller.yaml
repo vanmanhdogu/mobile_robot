@@ -1,0 +1,73 @@
+# Swerve controller configuration for the simulated mobile base.
+#
+# The controller TYPE comes from antbot_swerve_controller (a ros2_control
+# plugin, loaded by name at runtime); the instance is named swerve_controller
+# here. Topics are unaffected by the instance name: cmd_vel_topic defaults to
+# the absolute /cmd_vel, and the odometry publisher resolves to /odom because
+# a controller node's namespace is /.
+#
+# Geometry values are derived from urdf/mobile_base.xacro:
+#   module_x_offsets          = +-wheelbase_length/2 = +-0.265
+#   module_y_offsets          = +-wheelbase_width/2  = +-0.256  (wheel contact)
+#   steering_to_wheel_y_offsets = +-wheel_offset     = +-0.0555
+# Change the xacro and these together or the odometry will lie.
+
+controller_manager:
+  ros__parameters:
+    use_sim_time: true
+    update_rate: 100  # Hz
+
+    swerve_controller:
+      type: antbot_swerve_controller/SwerveDriveController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+swerve_controller:
+  ros__parameters:
+    steering_joint_names: ["steering_front_left_joint", "steering_front_right_joint", "steering_rear_left_joint", "steering_rear_right_joint"]
+    wheel_joint_names: ["wheel_front_left_joint", "wheel_front_right_joint", "wheel_rear_left_joint", "wheel_rear_right_joint"]
+
+    wheel_radius: 0.103
+
+    module_x_offsets: [ 0.265,  0.265, -0.265, -0.265]
+    module_y_offsets: [ 0.256, -0.256,  0.256, -0.256]
+    module_angle_offsets: [ 0.0, 0.0, 0.0, 0.0]
+    module_steering_limit_lower: [ -1.047, -1.047, -1.047, -1.047 ]
+    module_steering_limit_upper: [  1.047,  1.047,  1.047,  1.047 ]
+
+    steering_to_wheel_y_offsets: [ 0.0555, -0.0555, 0.0555, -0.0555 ]
+
+    module_wheel_speed_limit_lower: [ -50.0, -50.0, -50.0, -50.0 ]
+    module_wheel_speed_limit_upper: [ 50.0, 50.0, 50.0, 50.0 ]
+
+    # IgnitionSystem implements neither acceleration nor effort interfaces.
+    # The "Wheel acceleration command interface not found for module 0..3"
+    # warning at startup is expected and harmless.
+    steering:
+      use_velocity_command: false
+      use_acceleration_command: false
+      max_velocity: 5.0
+      max_acceleration: 10.0
+
+    wheel:
+      use_acceleration_command: false
+
+    # Simulation tuning, same rationale as antbot_gazebo:
+    #   3 IK iterations correct the 55.5 mm non-coaxial steering offset that
+    #   Gazebo exposes; there is no real tyre scrub to compensate for; a wider
+    #   velocity window smooths simulated encoder noise.
+    non_coaxial_ik_iterations: 3
+    enable_steering_scrub_compensator: false
+    velocity_rolling_window_size: 10
+    odom_integration_method: "analytic_swerve"
+    odom_solver_method: "svd"
+
+    enable_direct_joint_commands: false
+    enable_odom_tf: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+
+joint_state_broadcaster:
+  ros__parameters:
+    use_sim_time: true
