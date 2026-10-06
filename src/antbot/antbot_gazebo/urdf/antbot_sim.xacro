@@ -1,0 +1,140 @@
+<?xml version="1.0" ?>
+<robot name="antbot" xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- Optional sensor toggles, set from gazebo.launch.py.
+       All default to false: every one of these is a rendering sensor and
+       enabling them all at once will not hold real-time on a Jetson. -->
+  <xacro:arg name="lidar_3d" default="false"/>
+  <xacro:arg name="camera" default="false"/>
+  <xacro:arg name="side_cameras" default="false"/>
+  <xacro:arg name="mono_cameras" default="false"/>
+
+  <!-- Import shared macros from antbot_description -->
+  <xacro:include filename="$(find antbot_description)/urdf/sensors.xacro"/>
+  <xacro:include filename="$(find antbot_description)/urdf/base.xacro"/>
+  <xacro:include filename="$(find antbot_description)/urdf/wheel.xacro"/>
+
+  <!-- antbot_gazebo definitions -->
+  <xacro:include filename="$(find antbot_gazebo)/urdf/ros2_control_gazebo.xacro"/>
+  <xacro:include filename="$(find antbot_gazebo)/urdf/gazebo_plugins.xacro"/>
+
+  <!-- Wheel parameters -->
+  <xacro:property name="wheelbase_length" value="0.530"/>
+  <xacro:property name="wheelbase_width" value="0.512"/>
+  <xacro:property name="steering_width" value="0.401"/>
+  <xacro:property name="wheel_radius" value="0.103"/>
+  <xacro:property name="steering_height" value="0.120"/>
+  <xacro:property name="wheel_offset" value="${(wheelbase_width - steering_width)/2}"/>
+
+  <!-- Base body -->
+  <xacro:Base/>
+
+  <!-- 4 swerve wheels -->
+  <xacro:SwerveWheelLeft position_name="front_left"
+                         x_pos="${wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="front_right"
+                          x_pos="${wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+  <xacro:SwerveWheelLeft position_name="rear_left"
+                         x_pos="${-wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="rear_right"
+                          x_pos="${-wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+
+  <!-- Stereo camera -->
+  <xacro:Sensors name="camera_stereo_front_depth" xyz="0.348162 0.0475 0.526484" rpy="0.0 ${radians(30)} 0.0"/>
+  <xacro:OpticalFrame name="camera_stereo_front_depth_optical" parent="camera_stereo_front_depth"/>
+  <xacro:SensorsRel parent="camera_stereo_front_depth" child="camera_stereo_front_rgb" xyz="0.0 -0.124 0.0" rpy="0.0 0.0 0.0"/>
+  <xacro:OpticalFrame name="camera_stereo_front_rgb_optical" parent="camera_stereo_front_rgb"/>
+
+  <!-- ── Side and rear S10 RGBD cameras ──
+       Pitched 30 deg down like the front unit, so the 90 x 60 deg frustum
+       covers the ground from roughly the footprint edge out to the 8 m range
+       limit. The xyz values below are nominal mounts taken from the mono
+       camera positions (sides) and the rear deck height; replace them with
+       measured extrinsics once the brackets are on the robot.
+
+       No *_rgb sibling link is defined here, unlike the front stereo rig: a
+       gz rgbd_camera reports a single frame, and the S10's colour sensor sits
+       within a couple of cm of its ToF sensor rather than on a baseline. -->
+  <xacro:Sensors name="camera_stereo_left_depth" xyz="0.260 0.25477 0.500" rpy="0.0 ${radians(30)} ${radians(90)}"/>
+  <xacro:OpticalFrame name="camera_stereo_left_depth_optical" parent="camera_stereo_left_depth"/>
+  <xacro:Sensors name="camera_stereo_right_depth" xyz="0.260 -0.25477 0.500" rpy="0.0 ${radians(30)} ${radians(-90)}"/>
+  <xacro:OpticalFrame name="camera_stereo_right_depth_optical" parent="camera_stereo_right_depth"/>
+  <xacro:Sensors name="camera_stereo_back_depth" xyz="-0.37669 0.0 0.299" rpy="0.0 ${radians(30)} ${radians(180)}"/>
+  <xacro:OpticalFrame name="camera_stereo_back_depth_optical" parent="camera_stereo_back_depth"/>
+
+  <!-- Mono cameras -->
+  <xacro:Sensors name="camera_mono_left" xyz="0.260 0.25477 0.5875" rpy="0.0 0.0 ${radians(90)}"/>
+  <xacro:OpticalFrame name="camera_mono_left_optical" parent="camera_mono_left"/>
+  <xacro:Sensors name="camera_mono_front" xyz="0.35807 0.0 0.5875" rpy="0.0 0.0 0.0"/>
+  <xacro:OpticalFrame name="camera_mono_front_optical" parent="camera_mono_front"/>
+  <xacro:Sensors name="camera_mono_right" xyz="0.260 -0.25477 0.5875" rpy="0.0 0.0 ${radians(-90)}"/>
+  <xacro:OpticalFrame name="camera_mono_right_optical" parent="camera_mono_right"/>
+  <xacro:Sensors name="camera_mono_back" xyz="-0.37669 0.0 0.299" rpy="0.0 0.0 ${radians(180)}"/>
+  <xacro:OpticalFrame name="camera_mono_back_optical" parent="camera_mono_back"/>
+
+  <!-- IMU / GNSS / Magnetometer -->
+  <xacro:Sensors name="imu" xyz="0.240 0.00675 0.3902" rpy="0.0 0.0 ${radians(180)}"/>
+  <xacro:Sensors name="gnss" xyz="0.2026 -0.128 0.660" rpy="0.0 0.0 ${radians(180)}"/>
+  <xacro:Sensors name="magnetometer" xyz="0.240 -0.00425 0.3902" rpy="0.0 0.0 0.0"/>
+
+  <!-- 2D LiDAR -->
+  <xacro:Sensors name="lidar_2d_front" xyz="0.325 0.0 0.255" rpy="0.0 0.0 ${radians(180)}"/>
+  <xacro:Sensors name="lidar_2d_back" xyz="-0.325 0.0 0.255" rpy="0.0 0.0 0.0"/>
+
+  <!-- 3D LiDAR -->
+  <xacro:Sensors name="lidar_3d" xyz="0.225332 0.0 0.724904" rpy="0.0 ${radians(10)} 0.0"/>
+
+  <!-- Charging coil -->
+  <xacro:Sensors name="robot_charging_coil" xyz="-0.299119 0.0 0.170631" rpy="0.0 0.0 0.0"/>
+
+  <!-- ── Optional 3D LiDAR sensor (lidar_3d:=true) ──
+       Bridged to /lidar_3d_points to match the real Vanjee WLR-722 driver. -->
+  <xacro:if value="$(arg lidar_3d)">
+    <xacro:Lidar3DSensor link="lidar_3d_link" topic="lidar_3d"/>
+  </xacro:if>
+
+  <!-- ── Optional front RGBD camera (camera:=true) ──
+       Mounted on the x-forward link, NOT the optical one: a Gazebo camera
+       looks down its link's +X axis, and gz publishes the point cloud in that
+       same x-forward frame. -->
+  <xacro:if value="$(arg camera)">
+    <xacro:RgbdCameraSensor link="camera_stereo_front_depth_link"
+                            topic="camera_stereo_front"/>
+  </xacro:if>
+
+  <!-- ── Optional side + rear RGBD cameras (side_cameras:=true) ──
+       Three more S10s giving 360 deg depth coverage around the robot. Same
+       mount rule as the front unit: the x-forward link, not the optical one.
+       Each is a render pass per frame, but at 240 x 160 they are far cheaper
+       than the 640 x 360 mono cameras. -->
+  <xacro:if value="$(arg side_cameras)">
+    <xacro:RgbdCameraSensor link="camera_stereo_left_depth_link"
+                            topic="camera_stereo_left"/>
+    <xacro:RgbdCameraSensor link="camera_stereo_right_depth_link"
+                            topic="camera_stereo_right"/>
+    <xacro:RgbdCameraSensor link="camera_stereo_back_depth_link"
+                            topic="camera_stereo_back"/>
+  </xacro:if>
+
+  <!-- ── Optional 4x mono cameras (mono_cameras:=true) ──
+       Mounted on the x-forward links (see above) but reporting the optical
+       frame, which is what camera_info consumers expect. Images carry no
+       axis convention of their own, so there is no conflict here.
+       Expensive: four extra render passes per frame. -->
+  <xacro:if value="$(arg mono_cameras)">
+    <xacro:MonoCameraSensor link="camera_mono_front_link"
+                            frame="camera_mono_front_optical_link"
+                            topic="camera_mono_front"/>
+    <xacro:MonoCameraSensor link="camera_mono_left_link"
+                            frame="camera_mono_left_optical_link"
+                            topic="camera_mono_left"/>
+    <xacro:MonoCameraSensor link="camera_mono_right_link"
+                            frame="camera_mono_right_optical_link"
+                            topic="camera_mono_right"/>
+    <xacro:MonoCameraSensor link="camera_mono_back_link"
+                            frame="camera_mono_back_optical_link"
+                            topic="camera_mono_back"/>
+  </xacro:if>
+
+  <!-- Gazebo ros2_control -->
+  <xacro:antbot_ros2_control_gazebo/>
+</robot>

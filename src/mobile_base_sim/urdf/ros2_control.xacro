@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control hardware interface for the simulated mobile base.
+
+  IgnitionSystem implements velocity and position command interfaces only;
+  it has no acceleration or effort support, which is why the controller config
+  must set use_acceleration_command: false.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="mobile_base_ros2_control">
+    <ros2_control name="mobile_base_hardware" type="system">
+      <hardware>
+        <plugin>ign_ros2_control/IgnitionSystem</plugin>
+      </hardware>
+
+      <!-- Drive wheels: velocity command, position + velocity state -->
+      <xacro:macro name="WheelJoint" params="name">
+        <joint name="wheel_${name}_joint">
+          <command_interface name="velocity"/>
+          <state_interface name="velocity"/>
+          <state_interface name="position"/>
+        </joint>
+      </xacro:macro>
+
+      <!-- Steering modules: position command, position + velocity state -->
+      <xacro:macro name="SteeringJoint" params="name">
+        <joint name="steering_${name}_joint">
+          <command_interface name="position"/>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+        </joint>
+      </xacro:macro>
+
+      <xacro:WheelJoint name="front_left"/>
+      <xacro:WheelJoint name="front_right"/>
+      <xacro:WheelJoint name="rear_left"/>
+      <xacro:WheelJoint name="rear_right"/>
+
+      <xacro:SteeringJoint name="front_left"/>
+      <xacro:SteeringJoint name="front_right"/>
+      <xacro:SteeringJoint name="rear_left"/>
+      <xacro:SteeringJoint name="rear_right"/>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>

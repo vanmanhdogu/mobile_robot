@@ -1,0 +1,28 @@
+# joy_node parameters for the Logitech F710 (rear D/X switch on X).
+#
+# NOTE on deadzone: joystick.md section 4.3 asks for 0.12, but teleop_joystick_f710
+# applies its own 0.12 deadzone with rescale. Setting it here as well would apply
+# the deadzone twice and widen the dead region, so joy_node keeps its default and
+# the teleop node owns the deadzone.
+joy_node:
+  ros__parameters:
+    device_id: 0
+    deadzone: 0.05
+    autorepeat_rate: 20.0
+    coalesce_interval_ms: 20
+    sticky_buttons: false
+
+teleop_joystick_f710:
+  ros__parameters:
+    max_linear_vel: 1.0
+    max_angular_vel: 1.0
+    speed_level: 3
+    deadzone: 0.12
+    dpad_gain: 0.5
+    lt_threshold: -0.5
+    watchdog_timeout: 0.3
+    # 'standard'     : left stick = axes[0..1], D-pad = axes[6..7]
+    # 'mode_swapped' : left stick = axes[6..7], D-pad = axes[0..1]
+    #                  (the table in joystick.md section 2.1)
+    axis_profile: 'standard'
+    enable_accessories: true
