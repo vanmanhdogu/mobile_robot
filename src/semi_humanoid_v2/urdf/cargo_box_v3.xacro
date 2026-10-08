@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!-- semi_humanoid_v3 cargo box: closed box behind the OpenArm column,
+     0.355 x 0.52 x 0.45 m (x -0.355 .. 0.0, up to the robot centre),
+     panels on a 20x20 aluminium frame. No notch: the v3 column foot stays in
+     front of x = 0. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <material name="cargo_panel"><color rgba="0.72 0.75 0.82 1"/></material>
+  <material name="cargo_frame"><color rgba="0.55 0.56 0.58 1"/></material>
+  <xacro:macro name="CargoBoxV3" params="parent">
+    <joint name="cargo_box_joint" type="fixed">
+      <origin xyz="-0.1775 0 0.5410" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="cargo_box_link"/>
+    </joint>
+    <link name="cargo_box_link">
+      <visual>
+        <origin xyz="0.0000 0.0000 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.3510 0.5160 0.4460"/></geometry>
+        <material name="cargo_panel"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.1675 -0.2500 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.0200 0.4500"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.1675 -0.2500 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.0200 0.4500"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.0000 -0.2500 -0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.3550 0.0200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.0000 -0.2500 0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.3550 0.0200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.1675 0.2500 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.0200 0.4500"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.1675 0.2500 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.0200 0.4500"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.0000 0.2500 -0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.3550 0.0200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.0000 0.2500 0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.3550 0.0200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.1675 0.0000 -0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.5200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.1675 0.0000 0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.5200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.1675 0.0000 -0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.5200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <visual>
+        <origin xyz="0.1675 0.0000 0.2150" rpy="0 0 0"/>
+        <geometry><box size="0.0200 0.5200 0.0200"/></geometry>
+        <material name="cargo_frame"/>
+      </visual>
+      <collision>
+        <origin xyz="0.0000 0.0000 0.0000" rpy="0 0 0"/>
+        <geometry><box size="0.3550 0.5200 0.4500"/></geometry>
+      </collision>
+      <inertial>
+        <mass value="5.0"/>
+        <inertia ixx="0.19704" ixy="0" ixz="0" iyy="0.13689" iyz="0" izz="0.16518"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+</robot>

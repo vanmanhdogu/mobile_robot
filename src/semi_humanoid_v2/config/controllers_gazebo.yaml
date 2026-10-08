@@ -1,0 +1,150 @@
+# Gazebo simulation swerve controller configuration.
+# Disables acceleration interfaces (unsupported by IgnitionSystem)
+# and uses simulation-specific tuning values.
+
+controller_manager:
+  ros__parameters:
+    use_sim_time: true
+    update_rate: 100  # Hz
+    antbot_swerve_controller:
+      type: antbot_swerve_controller/SwerveDriveController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    lift_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    left_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    right_arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    left_gripper_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    right_gripper_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+antbot_swerve_controller:
+  ros__parameters:
+    steering_joint_names: ["steering_front_left_joint", "steering_front_right_joint", "steering_rear_left_joint", "steering_rear_right_joint"]
+    wheel_joint_names: ["wheel_front_left_joint", "wheel_front_right_joint", "wheel_rear_left_joint", "wheel_rear_right_joint"]
+
+    wheel_radius: 0.103
+
+    module_x_offsets: [ 0.265,  0.265, -0.265, -0.265]
+    module_y_offsets: [ 0.256, -0.256,  0.256, -0.256]
+    module_angle_offsets: [ 0.0, 0.0, 0.0, 0.0]
+    module_steering_limit_lower: [ -1.047, -1.047, -1.047, -1.047 ]
+    module_steering_limit_upper: [  1.047,  1.047,  1.047,  1.047 ]
+
+    steering_to_wheel_y_offsets: [ 0.0555, -0.0555, 0.0555, -0.0555 ]
+
+    module_wheel_speed_limit_lower: [ -50.0, -50.0, -50.0, -50.0 ]
+    module_wheel_speed_limit_upper: [ 50.0, 50.0, 50.0, 50.0 ]
+
+    # IgnitionSystem does not support acceleration interface
+    steering:
+      use_velocity_command: false
+      use_acceleration_command: false
+      max_velocity: 5.0
+      max_acceleration: 10.0
+
+    wheel:
+      use_acceleration_command: false
+
+    # Simulation tuning
+    non_coaxial_ik_iterations: 3
+    enable_steering_scrub_compensator: false
+    velocity_rolling_window_size: 10
+    odom_integration_method: "analytic_swerve"
+    odom_solver_method: "svd"
+
+    enable_direct_joint_commands: false
+    enable_odom_tf: true
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+
+joint_state_broadcaster:
+  ros__parameters:
+    use_sim_time: true
+
+left_arm_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: ["openarm_left_joint1", "openarm_left_joint2", "openarm_left_joint3", "openarm_left_joint4", "openarm_left_joint5", "openarm_left_joint6", "openarm_left_joint7"]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: true
+    open_loop_control: false
+    # Per-joint goal tolerances: without them JTC reports SUCCEEDED even if a
+    # joint never moves. goal_time is how long after the trajectory ends the
+    # joints may take to settle inside the tolerance before the goal aborts.
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      openarm_left_joint1: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint2: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint3: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint4: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint5: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint6: {trajectory: 0.0, goal: 0.02}
+      openarm_left_joint7: {trajectory: 0.0, goal: 0.02}
+
+left_gripper_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: ["openarm_left_finger_joint1"]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    # Looser than the arms. A finger stopped by a grasped object will miss
+    # this and the goal reports ABORTED, even though the grasp worked.
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      openarm_left_finger_joint1: {trajectory: 0.0, goal: 0.05}
+
+right_arm_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: ["openarm_right_joint1", "openarm_right_joint2", "openarm_right_joint3", "openarm_right_joint4", "openarm_right_joint5", "openarm_right_joint6", "openarm_right_joint7"]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: true
+    open_loop_control: false
+    # Per-joint goal tolerances: without them JTC reports SUCCEEDED even if a
+    # joint never moves. goal_time is how long after the trajectory ends the
+    # joints may take to settle inside the tolerance before the goal aborts.
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      openarm_right_joint1: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint2: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint3: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint4: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint5: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint6: {trajectory: 0.0, goal: 0.02}
+      openarm_right_joint7: {trajectory: 0.0, goal: 0.02}
+
+right_gripper_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: ["openarm_right_finger_joint1"]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    # Looser than the arms. A finger stopped by a grasped object will miss
+    # this and the goal reports ABORTED, even though the grasp worked.
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 1.0
+      openarm_right_finger_joint1: {trajectory: 0.0, goal: 0.05}
+
+lift_controller:
+  ros__parameters:
+    use_sim_time: true
+    joints: ["openarm_lift_joint"]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    # q = 0 home (shoulders 0.832 m above ground), q = -0.34 bottom stop.
+    constraints:
+      stopped_velocity_tolerance: 0.01
+      goal_time: 2.0
+      openarm_lift_joint: {trajectory: 0.0, goal: 0.005}

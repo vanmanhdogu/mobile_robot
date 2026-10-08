@@ -1,0 +1,107 @@
+<?xml version="1.0" ?>
+<!--
+  semi_humanoid_v2: ANTBot swerve base (stock cargo body, GNSS and 3D LiDAR
+  removed) carrying an OpenArm v2.0 bimanual on a lift column
+  (openarm_lift_joint, prismatic), plus a closed cargo box behind the column.
+
+  The swerve modules and the S10 camera ring come from antbot_description, so
+  they stay in sync with the real robot.
+-->
+<robot name="semi_humanoid_v2" xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- Rendering sensors are off by default (see antbot_gazebo for why). -->
+  <xacro:arg name="camera" default="false"/>
+  <xacro:arg name="side_cameras" default="false"/>
+  <xacro:arg name="sim_gazebo" default="true"/>
+
+  <xacro:arg name="calibration_yaml_path" default=""/>
+  <xacro:property name="calibration_yaml_path_val" value="$(arg calibration_yaml_path)"/>
+  <xacro:property name="calibration_config" value="${xacro.load_yaml(calibration_yaml_path_val) if calibration_yaml_path_val != '' else dict()}"/>
+
+  <xacro:include filename="$(find antbot_description)/urdf/sensors.xacro"/>
+  <xacro:include filename="$(find antbot_description)/urdf/wheel.xacro"/>
+  <!-- Must follow sensors.xacro: it overrides the S10 side mounts. -->
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/s10_ring_openarm.xacro"/>
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/openarm_v2_lift.xacro"/>
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/cargo_box.xacro"/>
+
+  <!-- DATUM: base_link lies ON the ground plane (z = 0). The wheel axle is
+       therefore at exactly wheel_radius, and every z below is height above
+       ground. This differs from antbot_description, where steering_height
+       0.120 > wheel_radius 0.103 puts base_link 17 mm BELOW the ground; all
+       z values inherited from that package are re-datumed by -0.017 here. -->
+
+  <!-- Wheel parameters (x/y as antbot_description; steering_height re-datumed) -->
+  <xacro:property name="wheelbase_length" value="0.530"/>
+  <xacro:property name="wheelbase_width" value="0.512"/>
+  <xacro:property name="steering_width" value="0.401"/>
+  <xacro:property name="wheel_radius" value="0.103"/>
+  <xacro:property name="steering_height" value="0.103"/>
+  <xacro:property name="wheel_offset" value="${(wheelbase_width - steering_width)/2}"/>
+
+  <!-- Base: chassis only. base_chassis.stl is base_link.stl with the cargo
+       body, flag and GNSS dome cut away, already in metres and in the
+       base_link frame. -->
+  <link name="base_link">
+    <inertial>
+      <mass value="50.0"/>
+      <inertia ixx="5.0" ixy="0" ixz="0" iyy="5.0" iyz="0" izz="8.0"/>
+    </inertial>
+    <visual>
+      <!-- base_chassis.stl is baked in the old datum; -0.017 re-levels it. -->
+      <origin xyz="0 0 -0.017" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://semi_humanoid_v2/meshes/base_chassis.stl"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.010 0 0.1985" rpy="0 0 0"/>
+      <geometry><box size="0.746 0.528 0.223"/></geometry>
+    </collision>
+  </link>
+
+  <xacro:SwerveWheelLeft position_name="front_left"
+                         x_pos="${wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="front_right"
+                          x_pos="${wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+  <xacro:SwerveWheelLeft position_name="rear_left"
+                         x_pos="${-wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="rear_right"
+                          x_pos="${-wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+
+  <xacro:S10CameraRingOpenarm/>
+
+  <!-- Remaining sensor frames (GNSS and 3D LiDAR removed) -->
+  <xacro:Sensors name="imu" xyz="-0.100 0.00675 0.3732" rpy="0.0 0.0 ${radians(180)}"/>
+  <!-- magnetometer_link removed. antbot_description places it at
+       (0.240, -0.00425, 0.3902) with the SAME z as imu_link and y within
+       11 mm, but 0.340 m away in x - consistent with one IMU board, not with
+       two mounts. No gz sensor was ever attached to it, nothing in this
+       workspace subscribes to it, and no MagneticField topic is bridged, so
+       it was a dead frame with a self-contradictory pose. Re-add it from
+       antbot_description once a CAD position exists. -->
+  <xacro:Sensors name="lidar_2d_front" xyz="0.325 0.0 0.238" rpy="0.0 0.0 ${radians(180)}"/>
+  <xacro:Sensors name="lidar_2d_back" xyz="-0.325 0.0 0.238" rpy="0.0 0.0 0.0"/>
+  <xacro:Sensors name="robot_charging_coil" xyz="-0.299119 0.0 0.153631" rpy="0.0 0.0 0.0"/>
+
+  <xacro:OpenArmLift parent="base_link"/>
+  <xacro:CargoBox parent="base_link"/>
+
+  <xacro:if value="$(arg sim_gazebo)">
+    <xacro:include filename="$(find semi_humanoid_v2)/urdf/gazebo_plugins.xacro"/>
+    <xacro:include filename="$(find semi_humanoid_v2)/urdf/ros2_control_gazebo.xacro"/>
+
+    <xacro:if value="$(arg camera)">
+      <xacro:RgbdCameraSensor link="camera_s10_front_link" topic="camera_s10_front"/>
+    </xacro:if>
+    <xacro:if value="$(arg side_cameras)">
+      <xacro:RgbdCameraSensor link="camera_s10_back_link" topic="camera_s10_back"/>
+      <xacro:RgbdCameraSensor link="camera_s10_left_link" topic="camera_s10_left"/>
+      <xacro:RgbdCameraSensor link="camera_s10_right_link" topic="camera_s10_right"/>
+    </xacro:if>
+
+    <xacro:semi_humanoid_v2_ros2_control_gazebo/>
+  </xacro:if>
+</robot>

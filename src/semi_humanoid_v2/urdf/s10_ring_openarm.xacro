@@ -1,0 +1,95 @@
+<?xml version="1.0" ?>
+<!--
+  S10 camera ring for the ANTBot + OpenArm build.
+
+  Replaces antbot_description's S10CameraRing.
+
+  DATUM: this package puts base_link ON the ground (see semi_humanoid_v2.urdf.xacro),
+  while antbot_description puts it 17 mm below. Every z here is therefore the
+  shared value minus 0.017, and the shared s10_front_xyz / s10_back_xyz strings
+  can no longer be used verbatim - front and back are spelled out below with
+  the same x/y and z = 0.350 - 0.017 = 0.333. If the upstream x/y ever move,
+  these two lines must be updated by hand.
+
+  The FRONT pitch still comes from antbot_description (s10_front_pitch, 30 deg).
+  The BACK pitch is overridden here to 30 deg as well, against the shared
+  15 deg - see s10_back_pitch_openarm below.
+
+  The side units are moved off the stock ANTBot rack post onto the cargo box:
+  (0.000, +-0.350, 0.550) instead of the shared (-0.100, +-0.320, 0.633), and
+  pitched 40 deg instead of the shared 35 deg.
+
+  Raising them to 0.550 and tilting to 40 deg keeps the near ground essentially
+  where a 0.330 m / 30 deg mount put it - 0.161 m beyond the mount, 0.511 m
+  from the robot centre - while restoring 0.205 m of near-clip margin: the
+  lower-edge ground hit is at a 0.573 m slant against the 0.3 m clip plane
+  (273 mm of margin, against 68 mm at 0.330 m / 30 deg).
+
+  The cost is the upper edge: at 40 deg it sits 6.3 deg BELOW horizontal, so
+  the side units see NOTHING at or above their own 0.550 m mount height, at
+  any distance. Front and back, at 30 deg, look 3.7 deg up and have no such
+  ceiling. Anything tall beside the robot - a person, a shelf, a stacked load -
+  is absent from the side clouds. That is a deliberate trade: near-clip margin
+  and near ground, bought with the side ceiling.
+
+  The mount is the cargo box's FRONT CORNER POST (x -0.020..0.000,
+  |y| 0.240..0.260, z 0.316..0.766): each unit sits beside that post at
+  mid-height, 90 mm outboard of it and 9 mm above the box's own mid-height
+  (0.541). A ~90 mm bracket off the post reaches it. The bracket is still not
+  modelled.
+
+  This placement clears the two conflicts the earlier (0.100, +-0.370, 0.913)
+  mount had: it is 0.315 m below openarm_top_crossbar_link instead of buried in
+  it, and with the lift up (shoulders at z = 0.815) link2 sits 0.169 m above
+  the housing. With the lift DOWN (shoulders at z = 0.475) it is tight in both
+  axes: link2 at zero joint angles occupies x 0.052..0.135, z 0.409..0.524, so
+  the housing clears it by only 12 mm in x and 12 mm in z. openarm_*_joint1
+  (axis Y) can swing the arm back through x = 0 on the way down. Keep the
+  cameras in the planning scene rather than relying on nominal clearance.
+
+  The stock ANTBot rack post the shared mounts were sized against does not
+  exist here.
+
+  Requires antbot_description/urdf/sensors.xacro to be included first - it
+  provides the MrdvsS10 macro and the shared s10_* properties.
+-->
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- Side mounts on the cargo box. base_link is ON the ground, so z IS
+       height above ground. Shared values for reference, re-datumed:
+       x = -0.100, y = +-0.320, z = 0.633, pitch 35 deg. -->
+  <!-- Back pitch, overridden. The shared ring uses 15 deg, which aims the rear
+       unit mostly at the horizon; 30 deg matches the front unit, so front and
+       back have identical coverage (same 0.333 height, same tilt): ground from
+       0.165 m behind the mount instead of 0.293 m, upper edge 3.7 deg above
+       horizontal instead of 18.7 deg. It also lifts the housing clear of
+       base_chassis.stl, which the 15 deg mount grazed by ~1 mm. -->
+  <xacro:property name="s10_back_pitch_openarm" value="${radians(30)}"/>
+
+  <xacro:property name="s10_side_x_openarm" value="0.000"/>
+  <xacro:property name="s10_side_y_openarm" value="0.350"/>
+  <xacro:property name="s10_side_z_openarm" value="0.550"/>
+  <xacro:property name="s10_side_pitch_openarm" value="${radians(40)}"/>
+
+  <xacro:macro name="S10CameraRingOpenarm">
+    <!-- x/y as antbot_description (0.380 / -0.390, y = 0); z re-datumed from
+         the shared 0.350. Front pitch is upstream's; back pitch is overridden. -->
+    <xacro:MrdvsS10 name="camera_s10_front"
+      default_xyz="0.380 0.0 0.333" default_rpy="0.0 ${s10_front_pitch} 0.0"
+      calibration_key="camera_s10_front_extrinsic"/>
+
+    <xacro:MrdvsS10 name="camera_s10_back"
+      default_xyz="-0.390 0.0 0.333" default_rpy="0.0 ${s10_back_pitch_openarm} ${radians(180)}"
+      calibration_key="camera_s10_back_extrinsic"/>
+
+    <!-- Overridden: on the cargo box front posts, 10 deg steeper than front/back. -->
+    <xacro:MrdvsS10 name="camera_s10_left"
+      default_xyz="${s10_side_x_openarm} ${s10_side_y_openarm} ${s10_side_z_openarm}"
+      default_rpy="0.0 ${s10_side_pitch_openarm} ${radians(90)}"
+      calibration_key="camera_s10_left_extrinsic"/>
+
+    <xacro:MrdvsS10 name="camera_s10_right"
+      default_xyz="${s10_side_x_openarm} ${-s10_side_y_openarm} ${s10_side_z_openarm}"
+      default_rpy="0.0 ${s10_side_pitch_openarm} ${radians(-90)}"
+      calibration_key="camera_s10_right_extrinsic"/>
+  </xacro:macro>
+</robot>

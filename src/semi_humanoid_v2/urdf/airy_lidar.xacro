@@ -1,0 +1,81 @@
+<?xml version="1.0" ?>
+<!--
+  One RoboSense Airy hemispherical 3D LiDAR, as a reusable macro.
+
+  Factored out of semi_humanoid_v2_airy.urdf.xacro so that model and
+  semi_humanoid_v3.urdf.xacro share one definition. The macro is unchanged;
+  only airy_vertical_samples became a parameter instead of being read from
+  $(arg) inside the macro, so each caller passes its own arg.
+
+  Airy datasheet, and how each line maps onto this model:
+
+    Dimension         phi60 x H63 mm, <240 g   -> meshes/airy_lidar.stl, mass
+    FOV (H x V)       360 x 90 deg (hemisphere: from the mounting plane
+                      to the dome axis)        -> vertical 0 .. +90 deg
+    Angular res. H    0.4 deg                  -> 900 horizontal samples
+    Lines             192 / 96 / 48            -> vertical_samples (96)
+    Frame rate        10 Hz                    -> update_rate 10
+    Range             blind spot <0.1 m, max 60 m -> range 0.10 .. 60.0
+    Accuracy          +-1 cm                   -> macro noise (stddev 0.01)
+
+  192 x 900 is ~173k rays per frame, six times the stock 3D LiDAR; on a Jetson
+  96 lines (the datasheet's 96-beam mode) is the default. With both units on,
+  that cost is paid twice; drop to 48 lines if the sim falls behind.
+
+  <name>_link frame: origin at the centre of the mounting face, +z along the
+  dome axis (out of the sensor), the mesh occupies z = 0 .. 0.063. The real
+  optical centre is not published, so the sensor sits on the mounting face;
+  the dome is closer than range_min and does not occlude the rays.
+
+  Requires, when $(arg sim_gazebo) is true, that gazebo_plugins.xacro has
+  already been included - it provides Lidar3DSensor. Instantiate this macro
+  AFTER that include.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="airy_radius" value="0.030"/>
+  <xacro:property name="airy_height" value="0.063"/>
+  <xacro:property name="airy_mass" value="0.240"/>
+
+  <material name="airy_black">
+    <color rgba="0.05 0.05 0.06 1.0"/>
+  </material>
+
+  <!-- One Airy unit: <name>_joint, <name>_link and, in sim, the gpu_lidar
+       whose gz topic is <name>. -->
+  <xacro:macro name="AiryLidar" params="name xyz rpy vertical_samples:=96">
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="${name}_link">
+      <inertial>
+        <origin xyz="0 0 ${airy_height/2}" rpy="0 0 0"/>
+        <mass value="${airy_mass}"/>
+        <inertia
+          ixx="${airy_mass/12*(3*airy_radius**2 + airy_height**2)}" ixy="0" ixz="0"
+          iyy="${airy_mass/12*(3*airy_radius**2 + airy_height**2)}" iyz="0"
+          izz="${airy_mass/2*airy_radius**2}"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://semi_humanoid_v2/meshes/airy_lidar.stl"/>
+        </geometry>
+        <material name="airy_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${airy_height/2}" rpy="0 0 0"/>
+        <geometry><cylinder radius="${airy_radius}" length="${airy_height}"/></geometry>
+      </collision>
+    </link>
+
+    <xacro:if value="$(arg sim_gazebo)">
+      <xacro:Lidar3DSensor link="${name}_link" topic="${name}"
+        horizontal_samples="900" vertical_samples="${vertical_samples}"
+        vertical_min="0.0" vertical_max="${radians(90)}"
+        range_min="0.10" range_max="60.0" update_rate="10"/>
+    </xacro:if>
+  </xacro:macro>
+</robot>

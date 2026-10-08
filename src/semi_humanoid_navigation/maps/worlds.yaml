@@ -1,0 +1,6 @@
+# World name -> saved map, used by navigation.launch.py world:=<name>.
+# The Gazebo world itself (.sdf) is resolved by antbot_gazebo/config/worlds.yaml,
+# so the same name works for both.
+worlds:
+  depot:
+    map: depot_sim.yaml

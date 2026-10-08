@@ -1,0 +1,319 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- Copied from antbot_gazebo/urdf/gazebo_plugins.xacro; only the
+       controller yaml path differs. -->
+
+  <!-- ── Ground friction ── -->
+  <gazebo reference="base_link">
+    <mu1>0.2</mu1>
+    <mu2>0.2</mu2>
+  </gazebo>
+
+  <!-- ── Wheel friction macro ── -->
+  <xacro:macro name="WheelFriction" params="prefix">
+    <gazebo reference="${prefix}_wheel_link">
+      <mu1>1.8</mu1>
+      <mu2>1.8</mu2>
+      <kp>1000000.0</kp>
+      <kd>100.0</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+    <gazebo reference="${prefix}_steering_link">
+      <mu1>0.0</mu1>
+      <mu2>0.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:WheelFriction prefix="front_left"/>
+  <xacro:WheelFriction prefix="front_right"/>
+  <xacro:WheelFriction prefix="rear_left"/>
+  <xacro:WheelFriction prefix="rear_right"/>
+
+  <!-- ── ign_ros2_control plugin ── -->
+  <gazebo>
+    <plugin filename="libign_ros2_control-system.so"
+            name="ign_ros2_control::IgnitionROS2ControlPlugin">
+      <parameters>$(find semi_humanoid_v2)/config/controllers_gazebo.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <!-- ── Front 2D LiDAR (gpu_lidar) ── -->
+  <gazebo reference="lidar_2d_front_link">
+    <sensor name="lidar_2d_front" type="gpu_lidar">
+      <always_on>true</always_on>
+      <update_rate>15</update_rate>
+      <topic>scan_0</topic>
+      <ignition_frame_id>lidar_2d_front_link</ignition_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.60</min>
+          <max>20.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.008</stddev>
+        </noise>
+      </lidar>
+      <visualize>true</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- ── Back 2D LiDAR (gpu_lidar) ── -->
+  <gazebo reference="lidar_2d_back_link">
+    <sensor name="lidar_2d_back" type="gpu_lidar">
+      <always_on>true</always_on>
+      <update_rate>15</update_rate>
+      <topic>scan_1</topic>
+      <ignition_frame_id>lidar_2d_back_link</ignition_frame_id>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.60</min>
+          <max>20.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.008</stddev>
+        </noise>
+      </lidar>
+      <!-- Disabled to reduce Gazebo rendering load (720 rays per frame).
+           Enable temporarily for debugging: set to true. -->
+      <visualize>false</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- ── IMU sensor ── -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <topic>imu</topic>
+      <ignition_frame_id>imu_link</ignition_frame_id>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.02</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.02</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.02</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       Optional sensors (3D LiDAR / cameras)
+
+       These are macros rather than plain <gazebo> blocks so that
+       antbot_sim.xacro can instantiate them conditionally: rendering
+       sensors are expensive and enabling all of them at once will not
+       hold real-time on a Jetson. See gazebo.launch.py arguments
+       lidar_3d / camera / side_cameras.
+       ══════════════════════════════════════════════════════════════════ -->
+
+  <!-- ── 3D LiDAR (gpu_lidar, Vanjee WLR-722 approximation) ──
+       Fortress gpu_lidar publishes TWO topics:
+         <topic>          ignition.msgs.LaserScan
+         <topic>/points   ignition.msgs.PointCloudPacked  ← the useful one
+       Ray budget is samples_h * samples_v per frame; 900 x 32 @ 10 Hz is
+       already ~288k rays/s. Raise vertical_samples only if you have GPU
+       headroom to spare. -->
+  <xacro:macro name="Lidar3DSensor"
+               params="link:=lidar_3d_link topic:=lidar_3d frame:=''
+                       horizontal_samples:=900 vertical_samples:=32
+                       vertical_min:=${radians(-25)} vertical_max:=${radians(15)}
+                       range_min:=0.10 range_max:=70.0
+                       update_rate:=10 visualize:=false">
+    <!-- frame defaults to the mount link -->
+    <xacro:property name="frame_id" value="${frame if frame else link}"/>
+    <gazebo reference="${link}">
+      <sensor name="${topic}" type="gpu_lidar">
+        <always_on>true</always_on>
+        <update_rate>${update_rate}</update_rate>
+        <topic>${topic}</topic>
+        <ignition_frame_id>${frame_id}</ignition_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>${horizontal_samples}</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>${vertical_samples}</samples>
+              <resolution>1</resolution>
+              <min_angle>${vertical_min}</min_angle>
+              <max_angle>${vertical_max}</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>${range_min}</min>
+            <max>${range_max}</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </lidar>
+        <visualize>${visualize}</visualize>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- ── RGBD camera (rgbd_camera) — models a Sunny/ToF S10 ──
+       Fortress rgbd_camera publishes FOUR topics off <topic>:
+         <topic>/image  <topic>/depth_image  <topic>/points  <topic>/camera_info
+
+       S10 datasheet, and how each line maps onto this sensor:
+
+         Laser wavelength      940 nm        not modelled (no IR sim in gz)
+         ToF resolution        240 x 160     -> width / height defaults
+         ToF frame rate        up to 20 fps, typ. 15  -> update_rate 15
+         ToF FOV               90 x 60 deg   -> hfov default (see note below)
+                               (120 x 80 variant: pass hfov="${radians(120)}")
+         RGB resolution        1920 x 1080 / 1632 x 1224   see RGB note below
+         RGB FOV               same as ToF
+         Range, 90% reflect.   0.3 - 8 m     -> near / far
+         Range, 5% reflect.    0.3 - 3 m     not modelled (gz depth is
+                                             reflectivity-independent)
+         Output                depth, RGB, IR amplitude  -> depth + RGB only
+
+       RGB NOTE: a gz rgbd_camera renders ONE image buffer and derives both the
+       colour and the depth stream from it, so the RGB image comes out at the
+       ToF resolution (240 x 160), not the S10's native 1920 x 1080. Raising
+       width/height to the RGB figure would also multiply the depth cost by 54x
+       for no extra depth information. If a task needs a full-resolution colour
+       stream, put a MonoCameraSensor on the same link at 1920 x 1080 and let
+       this sensor carry depth.
+
+       FOV NOTE: gz derives the vertical FOV from hfov and the image aspect
+       ratio. 240 x 160 is 3:2, so hfov 90 deg yields vfov ~67 deg against the
+       datasheet's 60 deg — slightly pessimistic coverage, kept because the
+       depth image stays at its native pixel count. For an exact 90 x 60
+       frustum pass height="139".
+
+       MOUNT LINK vs REPORTED FRAME are deliberately separate params:
+
+       * A Gazebo camera looks down its mount link's +X axis, so `link` must
+         be the x-forward sensor link. Mounting on a *_optical_link aims the
+         camera 90 deg off to the side, because an optical frame's +X points
+         right and its +Z is what points forward.
+       * gz-sensors publishes the point cloud in that same x-forward camera
+         frame (verified: cloud x starts exactly at the near clip), NOT in the
+         REP-103 optical convention, so `frame` must name the x-forward link
+         too or the cloud lands rotated in RViz. -->
+  <xacro:macro name="RgbdCameraSensor"
+               params="link topic frame:='' width:=240 height:=160
+                       hfov:=${radians(90)} near:=0.3 far:=8.0 update_rate:=15">
+    <!-- frame defaults to the mount link -->
+    <xacro:property name="frame_id" value="${frame if frame else link}"/>
+    <gazebo reference="${link}">
+      <sensor name="${topic}" type="rgbd_camera">
+        <always_on>true</always_on>
+        <update_rate>${update_rate}</update_rate>
+        <topic>${topic}</topic>
+        <ignition_frame_id>${frame_id}</ignition_frame_id>
+        <camera>
+          <horizontal_fov>${hfov}</horizontal_fov>
+          <image>
+            <width>${width}</width>
+            <height>${height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>${near}</near>
+            <far>${far}</far>
+          </clip>
+          <depth_camera>
+            <clip>
+              <near>${near}</near>
+              <far>${far}</far>
+            </clip>
+          </depth_camera>
+          <!-- ToF range noise is an order of magnitude coarser than the
+               stereo-style 0.005 this macro used to carry. -->
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- ── Mono camera (camera) ──
+       gz-sensors derives the camera_info topic by replacing the LAST
+       component of <topic>, so <topic> MUST end in /image or the info
+       topic lands at the wrong place:
+         <topic> = camera_rgb_front/image
+                -> camera_rgb_front/image, camera_rgb_front/camera_info
+
+       `link` must be the x-forward sensor link (see RgbdCameraSensor above).
+       A mono camera publishes no point cloud, so `frame` is free to name the
+       *_optical_link, which is what image_geometry / camera_info consumers
+       expect.
+
+       No sensor on the robot uses this macro right now - the mono ring was
+       replaced by the S10s. It is kept because RgbdCameraSensor renders its
+       colour stream at the ToF resolution (240 x 160); if a task needs the
+       S10's native 1920 x 1080 colour, add one of these on the same
+       camera_s10_*_link. -->
+  <xacro:macro name="MonoCameraSensor"
+               params="link topic frame:='' width:=640 height:=360
+                       hfov:=1.570796 near:=0.10 far:=50.0 update_rate:=15">
+    <!-- frame defaults to the mount link -->
+    <xacro:property name="frame_id" value="${frame if frame else link}"/>
+    <gazebo reference="${link}">
+      <sensor name="${topic}" type="camera">
+        <always_on>true</always_on>
+        <update_rate>${update_rate}</update_rate>
+        <topic>${topic}/image</topic>
+        <ignition_frame_id>${frame_id}</ignition_frame_id>
+        <camera>
+          <horizontal_fov>${hfov}</horizontal_fov>
+          <image>
+            <width>${width}</width>
+            <height>${height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>${near}</near>
+            <far>${far}</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

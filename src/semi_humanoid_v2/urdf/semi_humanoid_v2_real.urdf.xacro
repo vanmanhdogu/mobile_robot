@@ -1,0 +1,138 @@
+<?xml version="1.0" ?>
+<!--
+  Real-robot sensor layout of semi_humanoid_v2 (same body as
+  semi_humanoid_v2.urdf.xacro), ported from antbot_openarm_real.urdf.xacro.
+
+  The base is wired like antbot_description/urdf/antbot.xacro: same wheel
+  macros and the calibrated, upside-down 2D LiDAR mounts. Only GNSS and the 3D
+  LiDAR are absent, as on the sim model.
+
+  Only the Gazebo branch exists so far (robot_sensor_gazebo.launch.py): the
+  real-hardware ros2_control block (BoardInterface base + lift + arms) is not
+  ported yet.
+
+  Args:
+    calibration_yaml_path  sensor extrinsics, same file the stock robot loads
+    sim_gazebo             must stay true for now; also read by
+                           openarm_v2_lift.xacro for the Gazebo limit margins
+    camera, side_cameras, lidar_3d   simulated sensors
+-->
+<robot name="semi_humanoid_v2" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:arg name="sim_gazebo" default="true"/>
+  <xacro:arg name="camera" default="false"/>
+  <xacro:arg name="side_cameras" default="false"/>
+  <xacro:arg name="lidar_3d" default="false"/>
+
+  <xacro:arg name="calibration_yaml_path" default=""/>
+  <xacro:property name="calibration_yaml_path_val" value="$(arg calibration_yaml_path)"/>
+  <xacro:property name="calibration_config" value="${xacro.load_yaml(calibration_yaml_path_val) if calibration_yaml_path_val != '' else dict()}"/>
+
+  <xacro:include filename="$(find antbot_description)/urdf/sensors.xacro"/>
+  <xacro:include filename="$(find antbot_description)/urdf/wheel.xacro"/>
+  <!-- Must follow sensors.xacro: it overrides the S10 side mounts. -->
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/s10_ring_openarm.xacro"/>
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/openarm_v2_lift.xacro"/>
+  <xacro:include filename="$(find semi_humanoid_v2)/urdf/cargo_box.xacro"/>
+
+  <!-- DATUM: base_link lies ON the ground plane (z = 0). The wheel axle is
+       therefore at exactly wheel_radius, and every z below is height above
+       ground. This differs from antbot_description, where steering_height
+       0.120 > wheel_radius 0.103 puts base_link 17 mm BELOW the ground; all
+       z values inherited from that package are re-datumed by -0.017 here. -->
+
+  <!-- Wheel parameters (x/y as antbot_description; steering_height re-datumed) -->
+  <xacro:property name="wheelbase_length" value="0.530"/>
+  <xacro:property name="wheelbase_width" value="0.512"/>
+  <xacro:property name="steering_width" value="0.401"/>
+  <xacro:property name="wheel_radius" value="0.103"/>
+  <xacro:property name="steering_height" value="0.103"/>
+  <xacro:property name="wheel_offset" value="${(wheelbase_width - steering_width)/2}"/>
+
+  <!-- Base: chassis only (stock cargo body, flag and GNSS dome cut away). -->
+  <link name="base_link">
+    <inertial>
+      <mass value="50.0"/>
+      <inertia ixx="5.0" ixy="0" ixz="0" iyy="5.0" iyz="0" izz="8.0"/>
+    </inertial>
+    <visual>
+      <!-- base_chassis.stl is baked in the old datum; -0.017 re-levels it. -->
+      <origin xyz="0 0 -0.017" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://semi_humanoid_v2/meshes/base_chassis.stl"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.010 0 0.1985" rpy="0 0 0"/>
+      <geometry><box size="0.746 0.528 0.223"/></geometry>
+    </collision>
+  </link>
+
+  <xacro:SwerveWheelLeft position_name="front_left"
+                         x_pos="${wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="front_right"
+                          x_pos="${wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+  <xacro:SwerveWheelLeft position_name="rear_left"
+                         x_pos="${-wheelbase_length/2}" y_pos="${steering_width/2}"/>
+  <xacro:SwerveWheelRight position_name="rear_right"
+                          x_pos="${-wheelbase_length/2}" y_pos="${-steering_width/2}"/>
+
+  <xacro:S10CameraRingOpenarm/>
+
+  <!-- Sensor frames, as in antbot_description (GNSS and 3D LiDAR removed) -->
+  <xacro:Sensors name="imu" xyz="-0.100 0.00675 0.3732" rpy="0.0 0.0 ${radians(180)}"/>
+  <!-- magnetometer_link removed. antbot_description places it at
+       (0.240, -0.00425, 0.3902) with the SAME z as imu_link and y within
+       11 mm, but 0.340 m away in x - consistent with one IMU board, not with
+       two mounts. No gz sensor was ever attached to it, nothing in this
+       workspace subscribes to it, and no MagneticField topic is bridged, so
+       it was a dead frame with a self-contradictory pose. Re-add it from
+       antbot_description once a CAD position exists. -->
+
+  <!-- Real 2D LiDAR mounts. These differ from the sim model's on purpose: the
+       real units are mounted upside down, and their extrinsics come from the
+       calibration file when one is given. -->
+  <xacro:CalibratedSensors name="lidar_2d_front"
+    default_xyz="0.325 0.0 0.238" default_rpy="0.0 ${radians(180)} 0.0"
+    calibration_key="lidar_2d_front_extrinsic"/>
+  <xacro:CalibratedSensors name="lidar_2d_back"
+    default_xyz="-0.325 0.0 0.238" default_rpy="${radians(180)} 0.0 0.0"
+    calibration_key="lidar_2d_back_extrinsic"/>
+
+  <xacro:Sensors name="robot_charging_coil" xyz="-0.299119 0.0 0.153631" rpy="0.0 0.0 0.0"/>
+
+  <xacro:OpenArmLift parent="base_link"/>
+  <xacro:CargoBox parent="base_link"/>
+
+  <xacro:if value="$(arg sim_gazebo)">
+    <!-- Same Gazebo setup as semi_humanoid_v2.urdf.xacro: friction, IMU and
+         2D LiDAR sensors, one ign_ros2_control system for base, lift and arms.
+         The 2D LiDARs sit on the real, upside-down mounts above; their scans
+         are published in those frames, so TF puts them the right way up. -->
+    <xacro:include filename="$(find semi_humanoid_v2)/urdf/gazebo_plugins.xacro"/>
+    <xacro:include filename="$(find semi_humanoid_v2)/urdf/ros2_control_gazebo.xacro"/>
+    <xacro:semi_humanoid_v2_ros2_control_gazebo/>
+
+    <xacro:if value="$(arg camera)">
+      <xacro:RgbdCameraSensor link="camera_s10_front_link" topic="camera_s10_front"/>
+    </xacro:if>
+    <xacro:if value="$(arg side_cameras)">
+      <xacro:RgbdCameraSensor link="camera_s10_back_link" topic="camera_s10_back"/>
+      <xacro:RgbdCameraSensor link="camera_s10_left_link" topic="camera_s10_left"/>
+      <xacro:RgbdCameraSensor link="camera_s10_right_link" topic="camera_s10_right"/>
+    </xacro:if>
+
+    <!-- 3D LiDAR at the stock antbot_description mount. This build has no
+         3D LiDAR, and the column, chest and arms block much of its rear field
+         of view; it is here so antbot_gazebo's lidar_3d option works the same
+         way. -->
+    <xacro:if value="$(arg lidar_3d)">
+      <xacro:CalibratedSensors name="lidar_3d"
+        default_xyz="0.225332 0.0 0.707904" default_rpy="0.0 ${radians(10)} 0.0"
+        calibration_key="lidar_3d_extrinsic"/>
+      <xacro:Lidar3DSensor link="lidar_3d_link" topic="lidar_3d"/>
+    </xacro:if>
+  </xacro:if>
+</robot>
