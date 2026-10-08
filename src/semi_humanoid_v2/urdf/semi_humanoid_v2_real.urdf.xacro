@@ -4,7 +4,7 @@
   semi_humanoid_v2.urdf.xacro), ported from antbot_openarm_real.urdf.xacro.
 
   The base is wired like antbot_description/urdf/antbot.xacro: same wheel
-  macros and the calibrated, upside-down 2D LiDAR mounts. Only GNSS and the 3D
+  macros and the calibrated, upside-down 2D LiDAR mounts. GNSS and the 3D
   LiDAR are absent, as on the sim model.
 
   Only the Gazebo branch exists so far (robot_sensor_gazebo.launch.py): the
@@ -15,13 +15,12 @@
     calibration_yaml_path  sensor extrinsics, same file the stock robot loads
     sim_gazebo             must stay true for now; also read by
                            openarm_v2_lift.xacro for the Gazebo limit margins
-    camera, side_cameras, lidar_3d   simulated sensors
+    camera, side_cameras             simulated sensors
 -->
 <robot name="semi_humanoid_v2" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:arg name="sim_gazebo" default="true"/>
   <xacro:arg name="camera" default="false"/>
   <xacro:arg name="side_cameras" default="false"/>
-  <xacro:arg name="lidar_3d" default="false"/>
 
   <xacro:arg name="calibration_yaml_path" default=""/>
   <xacro:property name="calibration_yaml_path_val" value="$(arg calibration_yaml_path)"/>
@@ -122,17 +121,6 @@
       <xacro:RgbdCameraSensor link="camera_s10_back_link" topic="camera_s10_back"/>
       <xacro:RgbdCameraSensor link="camera_s10_left_link" topic="camera_s10_left"/>
       <xacro:RgbdCameraSensor link="camera_s10_right_link" topic="camera_s10_right"/>
-    </xacro:if>
-
-    <!-- 3D LiDAR at the stock antbot_description mount. This build has no
-         3D LiDAR, and the column, chest and arms block much of its rear field
-         of view; it is here so antbot_gazebo's lidar_3d option works the same
-         way. -->
-    <xacro:if value="$(arg lidar_3d)">
-      <xacro:CalibratedSensors name="lidar_3d"
-        default_xyz="0.225332 0.0 0.707904" default_rpy="0.0 ${radians(10)} 0.0"
-        calibration_key="lidar_3d_extrinsic"/>
-      <xacro:Lidar3DSensor link="lidar_3d_link" topic="lidar_3d"/>
     </xacro:if>
   </xacro:if>
 </robot>

@@ -9,7 +9,6 @@ and bridges the same sensor set as antbot_gazebo/launch/gazebo.launch.py:
   2D LiDAR back     always                 /scan_1
   IMU               always                 /imu/data
   clock             always                 /clock
-  3D LiDAR          lidar_3d (false)       /lidar_3d_points
   S10 front         camera (false)         /sensor/camera/stereo_front/*
   S10 back/left/right  side_cameras (false)  /sensor/camera/stereo_<position>/*
 
@@ -63,7 +62,7 @@ def _robot_and_bridge(context, *args, **kwargs):
     pkg = get_package_share_directory('semi_humanoid_v2')
 
     flags = {name: LaunchConfiguration(name).perform(context).lower()
-             for name in ('lidar_3d', 'camera', 'side_cameras')}
+             for name in ('camera', 'side_cameras')}
     calibration_yaml_path = os.path.expanduser(
         LaunchConfiguration('calibration_yaml_path').perform(context))
 
@@ -115,13 +114,6 @@ def _robot_and_bridge(context, *args, **kwargs):
         '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
     ]
     bridge_remaps = [('/imu', '/imu/data')]
-
-    if flags['lidar_3d'] == 'true':
-        # Only the point cloud: one ring of a 3D scan is not useful as a
-        # LaserScan. Topic name matches the real Vanjee WLR-722 driver.
-        bridge_args.append(
-            '/lidar_3d/points@sensor_msgs/msg/PointCloud2[ignition.msgs.PointCloudPacked')
-        bridge_remaps.append(('/lidar_3d/points', '/lidar_3d_points'))
 
     def bridge_rgbd(position):
         """Bridge one S10 onto /sensor/camera/stereo_<position>/*, the real driver names."""
@@ -190,9 +182,6 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'headless', default_value='false',
             description='Run the Gazebo server without the GUI (ign gazebo -s)'),
-        DeclareLaunchArgument(
-            'lidar_3d', default_value='false',
-            description='Simulated 3D LiDAR at the stock mount (-> /lidar_3d_points)'),
         DeclareLaunchArgument(
             'camera', default_value='true',
             description='Front S10 RGBD camera (-> /sensor/camera/stereo_front/*)'),

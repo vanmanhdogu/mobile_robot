@@ -159,8 +159,7 @@ itself the ground-level reference — see
 | `lidar_2d_front_link` | 0.325 | 0 | 0.238 | 0° | 0° \| **180°** | **180°** \| 0° | `gpu_lidar`, 15 Hz |
 | `lidar_2d_back_link` | −0.325 | 0 | 0.238 | 0° \| **180°** | 0° | 0° | `gpu_lidar`, 15 Hz |
 | `robot_charging_coil_link` | −0.299119 | 0 | 0.153631 | 0° | 0° | 0° | none |
-| `lidar_3d_link` † | 0.225332 | 0 | 0.707904 | 0° | 10° | 0° | `gpu_lidar`, 10 Hz |
-| `airy_link` ‡ | 0.200 | 0 | 0.920 | 0° | **+90°** | 0° | `gpu_lidar`, 10 Hz |
+| `airy_link` ‡ | 0.1500 | 0 | 1.00 | 0° | **+90°** | 0° | `gpu_lidar`, 10 Hz |
 | `airy_back_link` ‡ | −0.354 | 0 | 0.770 | 0° | **−90°** | 0° | `gpu_lidar`, 10 Hz |
 
 Where two values are separated by `|`, the first is

@@ -1,52 +1,90 @@
 <?xml version="1.0" ?>
 <!--
-  semi_humanoid_v2_real.urdf.xacro + two RoboSense Airy hemispherical 3D LiDARs.
+  semi_humanoid_v2_real.urdf.xacro + one RoboSense Airy hemispherical 3D LiDAR.
 
-  The real model is included unchanged; this file only adds the airy links,
-  their fixed joints and (with sim_gazebo) a gpu_lidar per unit. The unit
-  itself is urdf/airy_lidar.xacro's AiryLidar macro, shared with
-  semi_humanoid_v3.urdf.xacro; see that file for the datasheet mapping and the
-  frame convention.
+  The real model is included unchanged; this file only adds airy_link, its
+  fixed joint and (with sim_gazebo) a gpu_lidar built from the existing
+  Lidar3DSensor macro in gazebo_plugins.xacro.
 
-  Default mounts: back to back on the body column, facing opposite ways, so the
-  two hemispheres together cover the whole sphere around the robot:
+  Airy datasheet, and how each line maps onto this model:
 
-    airy_link       front (x = +0.200, z = 0.92), pitch +90 deg -> dome faces +x
-    airy_back_link  rear  (x = -0.354, z = 0.77), pitch -90 deg -> dome faces -x
+    Dimension         phi60 x H63 mm, <240 g   -> meshes/airy_lidar.stl, mass
+    FOV (H x V)       360 x 90 deg (hemisphere: from the mounting plane
+                      to the dome axis)        -> vertical 0 .. +90 deg
+    Angular res. H    0.4 deg                  -> 900 horizontal samples
+    Lines             192 / 96 / 48            -> airy_vertical_samples (96)
+    Frame rate        10 Hz                    -> update_rate 10
+    Range             blind spot <0.1 m, max 60 m -> range 0.10 .. 60.0
+    Accuracy          +-1 cm                   -> macro noise (stddev 0.01)
 
-  Move either one with its own _xyz / _rpy args.
+  192 x 900 is ~173k rays per frame, six times the stock 3D LiDAR; on a Jetson
+  96 lines (the datasheet's 96-beam mode) is the default.
+
+  airy_link frame: origin at the centre of the mounting face, +z along the
+  dome axis (out of the sensor), the mesh occupies z = 0 .. 0.063. The real
+  optical centre is not published, so the sensor sits on the mounting face;
+  the dome is closer than range_min and does not occlude the rays.
+
+  Default mount: on the front face of the body column (x = 0.195 m) at the
+  stock 3D LiDAR height, dome facing forward (pitch +90 deg), so the field of
+  view is the whole half-space in front of the robot, floor included. Move it
+  with airy_xyz / airy_rpy.
 
   Args (in addition to those of semi_humanoid_v2_real.urdf.xacro):
-    airy                        add the front sensor (true)
-    airy_xyz, airy_rpy          front mount pose relative to base_link
-    airy_back                   add the rear sensor (true)
-    airy_back_xyz, airy_back_rpy  rear mount pose relative to base_link
-    airy_vertical_samples       192 / 96 / 48 (96), used by both units
-
-  Topics (sim_gazebo): gz "airy" and "airy_back"; the launch file bridges them
-  to /airy_points and /airy_back_points.
+    airy                    add the sensor (true)
+    airy_xyz, airy_rpy      mount pose relative to base_link
+    airy_vertical_samples   192 / 96 / 48 (96)
 -->
 <robot name="semi_humanoid_v2" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:arg name="airy" default="true"/>
-  <xacro:arg name="airy_xyz" default="0.200 0.0 0.92"/>
+  <xacro:arg name="airy_xyz" default="0.100 0.0 0.92"/>
   <xacro:arg name="airy_rpy" default="0.0 1.5707963 0.0"/>
-  <xacro:arg name="airy_back" default="true"/>
-  <xacro:arg name="airy_back_xyz" default="-0.354 0.0 0.77"/>
-  <xacro:arg name="airy_back_rpy" default="0.0 -1.5707963 0.0"/>
   <xacro:arg name="airy_vertical_samples" default="96"/>
 
   <xacro:include filename="$(find semi_humanoid_v2)/urdf/semi_humanoid_v2_real.urdf.xacro"/>
-  <!-- Must follow the real model: AiryLidar uses Lidar3DSensor, which
-       gazebo_plugins.xacro defines inside that model's sim_gazebo branch. -->
-  <xacro:include filename="$(find semi_humanoid_v2)/urdf/airy_lidar.xacro"/>
 
   <xacro:if value="$(arg airy)">
-    <xacro:AiryLidar name="airy" xyz="$(arg airy_xyz)" rpy="$(arg airy_rpy)"
-      vertical_samples="$(arg airy_vertical_samples)"/>
-  </xacro:if>
+    <xacro:property name="airy_radius" value="0.030"/>
+    <xacro:property name="airy_height" value="0.063"/>
+    <xacro:property name="airy_mass" value="0.240"/>
 
-  <xacro:if value="$(arg airy_back)">
-    <xacro:AiryLidar name="airy_back" xyz="$(arg airy_back_xyz)" rpy="$(arg airy_back_rpy)"
-      vertical_samples="$(arg airy_vertical_samples)"/>
+    <material name="airy_black">
+      <color rgba="0.05 0.05 0.06 1.0"/>
+    </material>
+
+    <joint name="airy_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="airy_link"/>
+      <origin xyz="$(arg airy_xyz)" rpy="$(arg airy_rpy)"/>
+    </joint>
+
+    <link name="airy_link">
+      <inertial>
+        <origin xyz="0 0 ${airy_height/2}" rpy="0 0 0"/>
+        <mass value="${airy_mass}"/>
+        <inertia
+          ixx="${airy_mass/12*(3*airy_radius**2 + airy_height**2)}" ixy="0" ixz="0"
+          iyy="${airy_mass/12*(3*airy_radius**2 + airy_height**2)}" iyz="0"
+          izz="${airy_mass/2*airy_radius**2}"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://semi_humanoid_v2/meshes/airy_lidar.stl"/>
+        </geometry>
+        <material name="airy_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${airy_height/2}" rpy="0 0 0"/>
+        <geometry><cylinder radius="${airy_radius}" length="${airy_height}"/></geometry>
+      </collision>
+    </link>
+
+    <xacro:if value="$(arg sim_gazebo)">
+      <xacro:Lidar3DSensor link="airy_link" topic="airy"
+        horizontal_samples="900" vertical_samples="$(arg airy_vertical_samples)"
+        vertical_min="0.0" vertical_max="${radians(90)}"
+        range_min="0.10" range_max="60.0" update_rate="10"/>
+    </xacro:if>
   </xacro:if>
 </robot>

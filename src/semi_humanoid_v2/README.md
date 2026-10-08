@@ -46,7 +46,7 @@ height above ground: `base_link` lies on the ground plane (wheel axle at z = 0.1
 | Cargo box | x −0.355 … 0.000, y ±0.26, z 0.316 … 0.766, no notch |
 | S10 side cameras | `s10_ring_openarm.xacro`: (0, ±0.35, 0.55), 40° down; nearest arm link 11.6 mm at q ≈ −0.29 … −0.19 |
 | 2D LiDARs | real, inverted mounts at (±0.325, 0, 0.238); `lidar_2d_*_extrinsic` in the calibration yaml is honoured (unlike v2) |
-| Optional 3D LiDARs | xacro args `lidar_3d`, `airy`, `airy_back`, `airy_vertical_samples` (192\|96\|48); all off by default. `gazebo.launch.py` does not forward them — set them when calling xacro directly |
+| Optional 3D LiDARs | `airy:=true` / `airy_back:=true` (RoboSense Airy pair), `airy_vertical_samples:=192\|96\|48`; off by default. `gazebo.launch.py` forwards them only with `model:=semi_humanoid_v3` |
 
 | `openarm_lift_joint` | shoulder height | gripper tip, arm straight down |
 |---|---|---|
@@ -58,8 +58,8 @@ height above ground: `base_link` lies on the ground plane (wheel axle at z = 0.1
 ## Files
 
 - `urdf/semi_humanoid_v2.urdf.xacro` – main description (args: `camera`, `side_cameras`, `sim_gazebo`, `calibration_yaml_path`)
-- `urdf/semi_humanoid_v2_real.urdf.xacro` – real-robot sensor layout (args: `camera`, `side_cameras`, `lidar_3d`, `calibration_yaml_path`); used by `robot_sensor_gazebo.launch.py`
-- `urdf/semi_humanoid_v3.urdf.xacro` – v3 body + the real sensor layout and every 3D LiDAR option (args: `camera`, `side_cameras`, `sim_gazebo`, `lidar_3d`, `airy`, `airy_back`, `airy_vertical_samples`, `calibration_yaml_path`); `gazebo.launch.py model:=semi_humanoid_v3`
+- `urdf/semi_humanoid_v2_real.urdf.xacro` – real-robot sensor layout (args: `camera`, `side_cameras`, `calibration_yaml_path`); used by `robot_sensor_gazebo.launch.py`
+- `urdf/semi_humanoid_v3.urdf.xacro` – v3 body + the real sensor layout and the Airy pair (args: `camera`, `side_cameras`, `sim_gazebo`, `airy`, `airy_back`, `airy_vertical_samples`, `calibration_yaml_path`); `gazebo.launch.py model:=semi_humanoid_v3`
 - `urdf/airy_lidar.xacro` – the `AiryLidar` macro, shared by `semi_humanoid_v2_airy.urdf.xacro` and `semi_humanoid_v3.urdf.xacro`
 - `urdf/openarm_v2_lift.xacro` – column, lift joint, chest, both bars and the two arms
 - `urdf/cargo_box.xacro`, `urdf/s10_ring_openarm.xacro`, `urdf/ros2_control_gazebo.xacro`, `urdf/gazebo_plugins.xacro`
@@ -75,7 +75,9 @@ ros2 launch semi_humanoid_v2 gazebo.launch.py
 ```
 
 Options: `world:=depot`, `headless:=true`, `camera:=true`, `side_cameras:=true`,
-`model:=semi_humanoid_v3`, `calibration_yaml_path:=...`.
+`model:=semi_humanoid_v3`, `calibration_yaml_path:=...`. With
+`model:=semi_humanoid_v3` also `airy:=true`, `airy_back:=true` and
+`airy_vertical_samples:=48`.
 
 Lower the shoulders until straight arms reach the ground, then back home:
 
@@ -92,12 +94,11 @@ ros2 action send_goal /lift_controller/follow_joint_trajectory control_msgs/acti
 |---|---|---|
 | always | 2D LiDAR front / back | `/scan_0`, `/scan_1` |
 | always | IMU | `/imu/data` |
-| `lidar_3d` (false) | 3D LiDAR at the stock antbot_description mount | `/lidar_3d_points` |
 | `camera` (false) | S10 front | `/sensor/camera/stereo_front/*` |
 | `side_cameras` (false) | S10 back / left / right | `/sensor/camera/stereo_<position>/*` |
 
 ```bash
-ros2 launch semi_humanoid_v2 robot_sensor_gazebo.launch.py camera:=true side_cameras:=true lidar_3d:=true world:=depot
+ros2 launch semi_humanoid_v2 robot_sensor_gazebo.launch.py camera:=true side_cameras:=true world:=depot
 ```
 
 Also `headless:=true`, `calibration_yaml_path:=...`. Controllers are the same as `gazebo.launch.py`, lift included. The real-hardware ros2_control block (`real_robot.launch.py`) is not ported yet.

@@ -130,10 +130,12 @@
        antbot_sim.xacro can instantiate them conditionally: rendering
        sensors are expensive and enabling all of them at once will not
        hold real-time on a Jetson. See gazebo.launch.py arguments
-       lidar_3d / camera / side_cameras.
+       camera / side_cameras / airy / airy_back.
        ══════════════════════════════════════════════════════════════════ -->
 
-  <!-- ── 3D LiDAR (gpu_lidar, Vanjee WLR-722 approximation) ──
+  <!-- ── Generic 3D LiDAR (gpu_lidar). The stock ANTBot mount is gone, but
+       this macro is what airy_lidar.xacro builds each RoboSense Airy from, so
+       its lidar_3d_* parameter defaults are only defaults. ──
        Fortress gpu_lidar publishes TWO topics:
          <topic>          ignition.msgs.LaserScan
          <topic>/points   ignition.msgs.PointCloudPacked  ← the useful one

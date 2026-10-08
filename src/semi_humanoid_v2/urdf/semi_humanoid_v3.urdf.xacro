@@ -19,9 +19,10 @@
       lidar_2d_back_extrinsic in a calibration yaml are honoured here - in
       semi_humanoid_v2.urdf.xacro they were silently ignored. Positions are
       unchanged; only the orientations and the calibration hook differ.
-    * lidar_3d at the stock ANTBot mount, optional (lidar_3d, default false),
-      as in semi_humanoid_v2_real.urdf.xacro. This build has no such unit;
-      it is here so antbot_gazebo's lidar_3d option behaves the same way.
+    * NO stock 3D LiDAR. The old ANTBot mount at (0.225332, 0, 0.707904) is
+      gone from every model in this package: this build has no such unit, and
+      there it was heavily occluded by the lift rail, the cargo-box roof and
+      the arms. Use the Airys instead.
     * two RoboSense Airy hemispherical 3D LiDARs, optional (airy / airy_back,
       both default false), at the same mounts as semi_humanoid_v2_airy.
       See the blind-slab warning at the instantiations below.
@@ -39,9 +40,8 @@
   <xacro:arg name="side_cameras" default="false"/>
   <xacro:arg name="sim_gazebo" default="true"/>
   <!-- 3D LiDARs, all off by default: a bare launch costs the same as before. -->
-  <xacro:arg name="lidar_3d" default="false"/>
   <xacro:arg name="airy" default="false"/>
-  <xacro:arg name="airy_xyz" default="0.200 0.0 0.92"/>
+  <xacro:arg name="airy_xyz" default="0.150 0.0 1.00"/>
   <xacro:arg name="airy_rpy" default="0.0 1.5707963 0.0"/>
   <xacro:arg name="airy_back" default="false"/>
   <xacro:arg name="airy_back_xyz" default="-0.354 0.0 0.77"/>
@@ -148,17 +148,6 @@
       <xacro:RgbdCameraSensor link="camera_s10_right_link" topic="camera_s10_right"/>
     </xacro:if>
 
-    <!-- 3D LiDAR at the stock antbot_description mount. This build has no
-         3D LiDAR, and the column, chest and arms block much of its rear field
-         of view; it is here so antbot_gazebo's lidar_3d option works the same
-         way. -->
-    <xacro:if value="$(arg lidar_3d)">
-      <xacro:CalibratedSensors name="lidar_3d"
-        default_xyz="0.225332 0.0 0.707904" default_rpy="0.0 ${radians(10)} 0.0"
-        calibration_key="lidar_3d_extrinsic"/>
-      <xacro:Lidar3DSensor link="lidar_3d_link" topic="lidar_3d"/>
-    </xacro:if>
-
     <xacro:semi_humanoid_v2_ros2_control_gazebo/>
   </xacro:if>
 
@@ -166,17 +155,40 @@
        after the sim_gazebo branch above: AiryLidar calls Lidar3DSensor, which
        gazebo_plugins.xacro defines there.
 
-       v3 has NO top crossbar, so the front unit's nearest structure is now the
-       60x60 lift rail (x 0.070..0.130), 70 mm behind its mounting face; the
-       rear unit still sits flush on the cargo box rear panel (x = -0.354).
+       FRONT unit, (0.150, 0, 1.00), dome facing +X. v3 has no top crossbar,
+       so the 60x60 lift rail is the only structure near it: the rail spans
+       x 0.070..0.130 and z 0.379..1.065, so the mounting face sits 20 mm
+       ahead of the rail's front face and 65 mm BELOW its top - alongside the
+       rail, not above it, which a short bracket off the rail front face
+       reaches. The body occupies x 0.150..0.213 along the dome axis, y +-0.030
+       and z 0.970..1.030.
 
-       The two hemispheres do NOT cover the sphere. Each unit sees only its own
-       +X half-space, and the mounts are 0.554 m apart in x, so nothing sees
-       -0.354 < x < 0.200 - a vertical slab through the mid-body, unbounded in
-       y and z. Everything abeam of the robot's middle is invisible to both,
-       which is also where the side S10s have their 0.550 m ceiling. Kept as
-       documented in SENSORS.md; move the mounts onto a shared x plane with the
-       _xyz args if you need the slab closed. -->
+       !! THE CHEST DRIVES THROUGH THIS UNIT AT THE TOP OF THE LIFT STROKE !!
+       openarm_lift_link's collision box is x 0.015..0.165, y +-0.080,
+       z (0.730+q)..(0.890+q). Its x and y always overlap the unit; the z bands
+       meet once q >= +0.080, so the whole top 80 mm of the stroke
+       (q = +0.080 .. +0.160) puts the chest 15 mm into the Airy body. At the
+       Gazebo stop (q = +0.165) the overlap is 15 mm in x, 60 mm in y, 60 mm
+       in z. Self-collision is off in the SDF, so nothing stops it - the chest
+       simply passes through, and the unit's own returns will include it.
+
+       Three ways out, cheapest first: move the mount to x >= 0.165 (just past
+       the chest's front face), or back up to z >= 1.085 (clears the chest's
+       1.055 top at the stop), or cap the lift at q = +0.080. The shoulder
+       crossbar itself is clear either way: x 0.080..0.120, |y| 0.070..0.245,
+       so it misses the unit in both x (30 mm) and y.
+
+       REAR unit, (-0.354, 0, 0.770), unchanged - flush on the cargo box rear
+       panel, at its top edge.
+
+       The two hemispheres still do NOT cover the sphere. Each unit sees only
+       its own +X half-space, and the mounts are 0.504 m apart in x, so nothing
+       sees -0.354 < x < 0.150 - a vertical slab through the mid-body,
+       unbounded in y and z. Moving the front unit from 0.200 to 0.150 narrowed
+       that slab by 50 mm but did not close it; everything abeam of the robot's
+       middle is still invisible to both, which is also where the side S10s
+       have their 0.550 m ceiling. Closing it needs both mounts on a shared x
+       plane - set the _xyz args if you want that. -->
   <xacro:if value="$(arg airy)">
     <xacro:AiryLidar name="airy" xyz="$(arg airy_xyz)" rpy="$(arg airy_rpy)"
       vertical_samples="$(arg airy_vertical_samples)"/>

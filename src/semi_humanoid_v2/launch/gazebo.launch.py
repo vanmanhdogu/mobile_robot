@@ -18,6 +18,21 @@
 
 Adapted from antbot_gazebo/launch/gazebo.launch.py: same worlds, same swerve
 controller and sensor bridges, plus the two arm and gripper controllers.
+
+model picks the description: semi_humanoid_v2 (default) or semi_humanoid_v3.
+
+  Sensor                 Argument (default)          ROS topic
+  2D LiDAR front/back    always on                   /scan_0, /scan_1
+  IMU                    always on                   /imu/data
+  S10 front              camera (true)               /sensor/camera/stereo_front/*
+  S10 back/left/right    side_cameras (true)         /sensor/camera/stereo_<pos>/*
+  Airy, front            airy (false) *              /airy_points
+  Airy, rear             airy_back (false) *         /airy_back_points
+                         airy_vertical_samples (96)  192 / 96 / 48 lines
+
+* model:=semi_humanoid_v3 only — semi_humanoid_v2.urdf.xacro has no 3D LiDAR.
+  Both are off by default, so a bare launch costs what it always did. The old
+  stock 3D LiDAR mount has been removed from every model in this package.
 """
 
 import os
@@ -86,14 +101,30 @@ def _robot_and_bridge(context, *args, **kwargs):
         'calibration_yaml_path').perform(context)
 
     model = LaunchConfiguration('model').perform(context)
+
+    mappings = {
+        'camera': camera,
+        'side_cameras': side_cameras,
+        'calibration_yaml_path': calibration_yaml_path,
+    }
+
+    # The Airys are declared only by semi_humanoid_v3.urdf.xacro. xacro would
+    # ignore the mappings on any other model, but the bridges below would
+    # still come up with nothing publishing to them, so pin them off.
+    airy = airy_back = 'false'
+    if model == 'semi_humanoid_v3':
+        airy = LaunchConfiguration('airy').perform(context).lower()
+        airy_back = LaunchConfiguration('airy_back').perform(context).lower()
+        mappings.update({
+            'airy': airy,
+            'airy_back': airy_back,
+            'airy_vertical_samples':
+                LaunchConfiguration('airy_vertical_samples').perform(context),
+        })
+
     urdf_path = os.path.join(pkg, 'urdf', model + '.urdf.xacro')
     robot_description_xml = xacro.process_file(
-        urdf_path,
-        mappings={
-            'camera': camera,
-            'side_cameras': side_cameras,
-            'calibration_yaml_path': calibration_yaml_path,
-        }).toxml()
+        urdf_path, mappings=mappings).toxml()
 
     spawn_robot = Node(
         package='ros_gz_sim',
@@ -200,6 +231,18 @@ def _robot_and_bridge(context, *args, **kwargs):
             (gz_topic + '/camera_info', ros_topic + '/camera_info'),
         ])
 
+    # Only the point clouds for the Airys: one ring of a 3D scan is not
+    # useful as a LaserScan.
+    for gz_name, ros_name, enabled in (
+            ('airy', 'airy_points', airy),
+            ('airy_back', 'airy_back_points', airy_back)):
+        if enabled != 'true':
+            continue
+        bridge_args.append(
+            '/' + gz_name + '/points@sensor_msgs/msg/PointCloud2'
+            '[ignition.msgs.PointCloudPacked')
+        bridge_remaps.append(('/' + gz_name + '/points', '/' + ros_name))
+
     if camera == 'true':
         _bridge_rgbd('front')
 
@@ -259,6 +302,28 @@ def generate_launch_description():
         choices=['semi_humanoid_v2', 'semi_humanoid_v3'],
         description='Robot description: urdf/<model>.urdf.xacro')
 
+    # The three below apply to model:=semi_humanoid_v3 only; they are ignored,
+    # and no bridge is started, for semi_humanoid_v2.
+    airy_arg = DeclareLaunchArgument(
+        'airy',
+        default_value='false',
+        description='v3 only. RoboSense Airy 3D LiDAR, front mount '
+                    '(-> /airy_points)')
+
+    airy_back_arg = DeclareLaunchArgument(
+        'airy_back',
+        default_value='false',
+        description='v3 only. RoboSense Airy 3D LiDAR, rear mount '
+                    '(-> /airy_back_points). With the front unit it leaves a '
+                    '0.554 m blind slab across the mid-body - see SENSORS.md.')
+
+    airy_vertical_samples_arg = DeclareLaunchArgument(
+        'airy_vertical_samples',
+        default_value='96',
+        choices=['192', '96', '48'],
+        description='v3 only. Airy beam count, both units. 96 is the datasheet '
+                    '96-beam mode; drop to 48 if the sim falls behind.')
+
     calibration_yaml_path_arg = DeclareLaunchArgument(
         'calibration_yaml_path',
         default_value='',
@@ -288,6 +353,9 @@ def generate_launch_description():
         camera_arg,
         side_cameras_arg,
         model_arg,
+        airy_arg,
+        airy_back_arg,
+        airy_vertical_samples_arg,
         calibration_yaml_path_arg,
         set_resource_path,
         set_plugin_path,

@@ -13,7 +13,7 @@ The two hemispheres face opposite ways (front dome +x, rear dome -x), so
 together they see the whole sphere around the robot. Each unit costs a full
 gpu_lidar; on a Jetson drop airy_vertical_samples to 48 if the sim falls behind.
 
-All arguments of robot_sensor_gazebo.launch.py (world, headless, lidar_3d,
+All arguments of robot_sensor_gazebo.launch.py (world, headless,
 camera, side_cameras, calibration_yaml_path) work unchanged.
 """
 
@@ -66,7 +66,7 @@ def _robot_and_bridge_airy(context, *args, **kwargs):
     finally:
         base.xacro = real_xacro
 
-    # Only the point clouds, as for lidar_3d.
+    # Only the point clouds: one ring of a 3D scan is not useful as a LaserScan.
     for name, enabled in (('airy', airy), ('airy_back', airy_back)):
         if enabled != 'true':
             continue
